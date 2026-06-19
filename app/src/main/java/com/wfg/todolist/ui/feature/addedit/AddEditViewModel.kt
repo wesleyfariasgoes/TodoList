@@ -6,6 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wfg.todolist.data.TodoRepository
+import com.wfg.todolist.ui.UiEvent
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 class AddEditViewModel(
@@ -17,6 +20,9 @@ class AddEditViewModel(
 
     var description by mutableStateOf<String?>(null)
         private set
+
+    private val _uiEvent = Channel<UiEvent>()
+    val uiEvent = _uiEvent.receiveAsFlow()
 
     fun onEvent(event: AddEditEvent) {
         when (event) {
@@ -36,7 +42,12 @@ class AddEditViewModel(
 
     private fun saveTodo() {
         viewModelScope.launch {
+            if (title.isBlank()) {
+                _uiEvent.send(UiEvent.ShowSnackbar("O título não pode estar em branco"))
+                return@launch
+            }
             repository.insertTodo(title, description)
+            _uiEvent.send(UiEvent.NavigateBack)
         }
     }
 
