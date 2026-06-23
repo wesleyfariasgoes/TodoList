@@ -8,42 +8,36 @@ class TodoRepositoryImpl(
     private val dao: TodoDao
 ) : TodoRepository {
 
-    override suspend fun insertTodo(title: String, description: String?) {
-        val entity = TodoEntity(
+    override suspend fun insertTodo(title: String, description: String?, id: Long?) {
+        val entity = id?.let {
+            dao.getTodoById(it)?.copy(
+                title = title,
+                description = description
+            )
+        } ?: TodoEntity(
             title = title,
             description = description,
             isCompleted = false
         )
-        dao.insertTodo(entity)
-    }
 
-    override suspend fun updateCompleted(id: Long, isCompleted: Boolean) {
-        val existingTodo = dao.getTodoById(id) ?: return
-        val updatedTodo = existingTodo.copy(isCompleted = isCompleted)
-        dao.insertTodo(updatedTodo)
-    }
+    dao.insertTodo(entity)
+}
 
-    override suspend fun deleteTodo(id: Long) {
-        val existingTodo = dao.getTodoById(id) ?: return
-        dao.deleteTodo(existingTodo)
-    }
+override suspend fun updateCompleted(id: Long, isCompleted: Boolean) {
+    val existingTodo = dao.getTodoById(id) ?: return
+    val updatedTodo = existingTodo.copy(isCompleted = isCompleted)
+    dao.insertTodo(updatedTodo)
+}
 
-    override fun getAllTodos(): Flow<List<Todo>> {
-        //mapeamento do Flow e em seguida mapeamento da lista de TodoEntity para Tod0
-        return dao.getAllTodos().map { entities ->
-            entities.map { entity ->
-                Todo(
-                    id = entity.id,
-                    title = entity.title,
-                    description = entity.description,
-                    isCompleted = entity.isCompleted
-                )
-            }
-        }
-    }
+override suspend fun deleteTodo(id: Long) {
+    val existingTodo = dao.getTodoById(id) ?: return
+    dao.deleteTodo(existingTodo)
+}
 
-    override suspend fun getTodoById(id: Long): Todo? {
-        return dao.getTodoById(id)?.let { entity ->
+override fun getAllTodos(): Flow<List<Todo>> {
+    //mapeamento do Flow e em seguida mapeamento da lista de TodoEntity para Tod0
+    return dao.getAllTodos().map { entities ->
+        entities.map { entity ->
             Todo(
                 id = entity.id,
                 title = entity.title,
@@ -52,5 +46,17 @@ class TodoRepositoryImpl(
             )
         }
     }
+}
+
+override suspend fun getTodoById(id: Long): Todo? {
+    return dao.getTodoById(id)?.let { entity ->
+        Todo(
+            id = entity.id,
+            title = entity.title,
+            description = entity.description,
+            isCompleted = entity.isCompleted
+        )
+    }
+}
 
 }

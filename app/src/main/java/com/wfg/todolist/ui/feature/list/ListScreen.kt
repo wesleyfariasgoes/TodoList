@@ -1,4 +1,4 @@
-package com.wfg.todolist.ui.feature
+package com.wfg.todolist.ui.feature.list
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,15 +14,24 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wfg.todolist.R
+import com.wfg.todolist.data.TodoDatabaseProvider
+import com.wfg.todolist.data.TodoRepositoryImpl
 import com.wfg.todolist.domain.Todo
 import com.wfg.todolist.domain.todoList
 import com.wfg.todolist.domain.todoList2
 import com.wfg.todolist.domain.todoList3
+import com.wfg.todolist.navigation.AddEditRoute
+import com.wfg.todolist.ui.UiEvent
 import com.wfg.todolist.ui.components.AppToolbar
 import com.wfg.todolist.ui.components.TodoItem
 import com.wfg.todolist.ui.theme.TodoListTheme
@@ -31,16 +40,46 @@ import com.wfg.todolist.ui.theme.TodoListTheme
 fun ListScreen(
     navigateToAddEditScreen: (id: Long?) -> Unit
 ) {
+    val context = LocalContext.current.applicationContext
+    val database = TodoDatabaseProvider.provide(context)
+    val repository = TodoRepositoryImpl(
+        dao = database.todoDao
+    )
+    val viewModel = viewModel<ListViewModel> {
+        ListViewModel(repository = repository)
+    }
+
+    val todos by  viewModel.todos.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { uiEvent ->
+            when(uiEvent) {
+                is UiEvent.Nsvigate<*> -> {
+                    when(uiEvent.route) {
+                        is AddEditRoute -> {
+                            navigateToAddEditScreen(uiEvent.route.id)
+                        }
+                    }
+                }
+                is UiEvent.NavigateBack -> {
+                }
+                is UiEvent.ShowSnackbar -> {
+                }
+            }
+        }
+    }
+
+
     ListContent(
-        onAddItemClick = navigateToAddEditScreen,
-        todos = emptyList()
+        onEvent = viewModel::onEvent,
+        todos = todos
     )
 }
 
 @Composable
 fun ListContent(
     todos: List<Todo>,
-    onAddItemClick: (id: Long?) -> Unit
+    onEvent: (ListEvent) -> Unit = {},
 ) {
     AppToolbar(
         title = stringResource(R.string.add_home_screen_title)
@@ -50,7 +89,7 @@ fun ListContent(
         Box(modifier = Modifier.padding(paddingValues)) {
             Scaffold(
                 floatingActionButton = {
-                    FloatingActionButton(onClick = { onAddItemClick(null)} ) {
+                    FloatingActionButton(onClick = { onEvent(ListEvent.AddEdit(null)) } ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add"
@@ -66,9 +105,15 @@ fun ListContent(
                     itemsIndexed(todos) { index, todo ->
                         TodoItem(
                             todo = todo,
-                            onCompletedChange = {},
-                            onItemClick = {},
-                            onDeleteClick = {}
+                            onCompletedChange = {
+                                onEvent(ListEvent.OnCompletedChange(todo.id, it))
+                            },
+                            onItemClick = {
+                                onEvent(ListEvent.AddEdit(todo.id))
+                            },
+                            onDeleteClick = {
+                                onEvent(ListEvent.Delete(todo.id))
+                            }
                         )
                         if (index < todos.lastIndex) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -94,7 +139,7 @@ fun ListContentPreview() {
                 todoList2,
                 todoList3
             ),
-            onAddItemClick = {}
+            onEvent = {}
         )
     }
 }
